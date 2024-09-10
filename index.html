@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ahorcado con Animaciones, Pistas y Tienda</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background-color: #f0f0f0;
+      text-align: center;
+    }
+
+    h1 {
+      color: #333;
+    }
+
+    #hangmanCanvas {
+      border: 2px solid #333;
+      background-color: #fff;
+    }
+
+    #menu, #tienda, #game {
+      display: none;
+    }
+
+    .button {
+      background-color: #87ceeb;
+      border: none;
+      padding: 15px;
+      font-size: 1.2em;
+      margin: 10px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+      border-radius: 5px;
+    }
+
+    .button:hover {
+      background-color: #6495ed;
+    }
+
+    .wordDisplay {
+      font-size: 2em;
+      letter-spacing: 0.5em;
+      margin: 20px;
+    }
+
+    .letters button {
+      margin: 5px;
+      padding: 10px;
+      font-size: 1em;
+      background-color: #87ceeb;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .letters button:hover {
+      background-color: #6495ed;
+    }
+
+    .letters button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    @keyframes deathAnimation {
+      0% { transform: rotate(0); }
+      100% { transform: rotate(90deg); }
+    }
+
+    .dead {
+      animation: deathAnimation 2s ease-in-out;
+    }
+
+    /* Tienda */
+    #tienda {
+      text-align: left;
+    }
+
+    .item {
+      background-color: #f9f9f9;
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin: 10px;
+      border-radius: 5px;
+    }
+
+    .item button {
+      padding: 5px;
+      background-color: #87ceeb;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    #pista, #monedas {
+      margin-top: 20px;
+      color: green;
+    }
+  </style>
+</head>
+<body>
+  <div id="menu">
+    <h1>Bienvenido al Juego de Ahorcado</h1>
+    <button class="button" onclick="mostrarJuego()">Jugar</button>
+    <button class="button" onclick="mostrarTienda()">Tienda</button>
+    <p>Monedas: <span id="monedas"></span></p>
+  </div>
+
+  <div id="tienda">
+    <h1>Tienda</h1>
+    <div class="item">
+      <p>Paquete de pistas (5) - 50 monedas</p>
+      <button onclick="comprarItem('Pistas')">Comprar</button>
+    </div>
+    <div class="item">
+      <p>Revivir tras perder - 100 monedas</p>
+      <button onclick="comprarItem('Revivir')">Comprar</button>
+    </div>
+    <button class="button" onclick="mostrarMenu()">Volver al Menú</button>
+  </div>
+
+  <div id="game">
+    <h1>Juego del Ahorcado</h1>
+    <p id="vidas">Vidas: 1</p>
+    <p id="tema">Tema: Palabras de programación</p>
+    <canvas id="hangmanCanvas" width="200" height="250"></canvas>
+    <div id="message"></div>
+    <div class="wordDisplay" id="wordDisplay">_ _ _ _</div>
+    <div id="pista"></div>
+    <button class="button" onclick="usarPista()">Usar Pista</button>
+    <div class="letters" id="letterButtons"></div>
+    <button class="button" onclick="mostrarMenu()">Volver al Menú</button>
+  </div>
+
+  <script>
+    const words = [
+      { word: 'JAVASCRIPT', pista: 'Lenguaje utilizado en la web.' },
+      { word: 'HTML', pista: 'Lenguaje de marcado para estructurar páginas.' },
+      { word: 'CSS', pista: 'Estilos para la web.' },
+      { word: 'PROGRAMACION', pista: 'Acción de escribir código.' }
+    ];
+    let selected = words[Math.floor(Math.random() * words.length)];
+    let selectedWord = selected.word;
+    let hiddenWord = Array(selectedWord.length).fill('_');
+    let wrongGuesses = 0;
+    let coins = localStorage.getItem('coins') ? parseInt(localStorage.getItem('coins')) : 100;
+    let pistas = 0;
+    let lives = 1;
+
+    const maxGuesses = 6;
+
+    function mostrarMenu() {
+      document.getElementById('menu').style.display = 'block';
+      document.getElementById('game').style.display = 'none';
+      document.getElementById('tienda').style.display = 'none';
+      document.getElementById('monedas').textContent = coins;
+    }
+
+    function mostrarJuego() {
+      document.getElementById('menu').style.display = 'none';
+      document.getElementById('game').style.display = 'block';
+      initGame();
+    }
+
+    function mostrarTienda() {
+      document.getElementById('menu').style.display = 'none';
+      document.getElementById('tienda').style.display = 'block';
+    }
+
+    function comprarItem(item) {
+      if (item === 'Pistas' && coins >= 50) {
+        coins -= 50;
+        pistas += 5;
+        localStorage.setItem('coins', coins);
+        document.getElementById('monedas').textContent = coins;
+        alert("¡Has comprado pistas!");
+      } else if (item === 'Revivir' && coins >= 100) {
+        coins -= 100;
+        lives++;
+        document.getElementById('vidas').textContent = "Vidas: " + lives;
+        localStorage.setItem('coins', coins);
+        document.getElementById('monedas').textContent = coins;
+        alert("¡Has comprado una vida extra!");
+      } else {
+        alert("No tienes suficientes monedas");
+      }
+    }
+
+    function initGame() {
+      const wordDisplay = document.getElementById('wordDisplay');
+      const letterButtons = document.getElementById('letterButtons');
+      document.getElementById('vidas').textContent = "Vidas: " + lives;
+      document.getElementById('pista').textContent = '';
+      wordDisplay.textContent = hiddenWord.join(' ');
+      letterButtons.innerHTML = '';
+
+      for (let i = 65; i <= 90; i++) {
+        const letter = String.fromCharCode(i);
+        const button = document.createElement('button');
+        button.textContent = letter;
+        button.onclick = () => guessLetter(letter, button);
+        letterButtons.appendChild(button);
+      }
+
+      drawHangman(wrongGuesses);
+    }
+
+    function guessLetter(letter, button) {
+      button.disabled = true;
+      if (selectedWord.includes(letter)) {
+        for (let i = 0; i < selectedWord.length; i++) {
+          if (selectedWord[i] === letter) {
+            hiddenWord[i] = letter;
+          }
+        }
+        document.getElementById('wordDisplay').textContent = hiddenWord.join(' ');
+        coins += 2;  // Añadir 2 monedas por cada letra correcta
+        localStorage.setItem('coins', coins);  // Guardar monedas
+        document.getElementById('monedas').textContent = coins;
+        checkWin();
+      } else {
+        wrongGuesses++;
+        drawHangman(wrongGuesses);
+        checkLoss();
+      }
+    }
+
+    function checkWin() {
+      if (!hiddenWord.includes('_')) {
+        document.getElementById('message').textContent = "¡Ganaste!";
+        disableButtons();
+        coins += 20;  // Añadir monedas al ganar
+        localStorage.setItem('coins', coins);  // Guardar las monedas en localStorage
+        document.getElementById('monedas').textContent = coins;  // Actualizar el contador de monedas
+        setTimeout(() => {
+          // Cambiar palabra clave al ganar
+          selected = words[Math.floor(Math.random() * words.length)];
+          selectedWord = selected.word;
+          hiddenWord = Array(selectedWord.length).fill('_');
+          wrongGuesses = 0;
+          initGame();
+        }, 2000);
+      }
+    }
+
+    function checkLoss() {
+      if (wrongGuesses >= maxGuesses && lives > 0) {
+        lives--;
+        alert("Has usado una vida extra");
+        wrongGuesses = 0;
+        initGame();
+      } else if (wrongGuesses >= maxGuesses && lives === 0) {
+            document.getElementById('message').textContent = `¡Perdiste! La palabra era: ${selectedWord}`;
+            disableButtons();
+            document.getElementById('hangmanCanvas').classList.add('dead');
+        }
+    }
+
+    function usarPista() {
+        if (pistas > 0) {
+            pistas--;
+            document.getElementById('pista').textContent = "Pista: " + selected.pista;
+        } else {
+            alert("No tienes más pistas.");
+        }
+    }
+
+    function disableButtons() {
+        const buttons = document.querySelectorAll('.letters button');
+        buttons.forEach(button => button.disabled = true);
+    }
+
+    function drawHangman(stage) {
+        const canvas = document.getElementById('hangmanCanvas');
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+
+        if (stage > 0) { ctx.beginPath(); ctx.moveTo(10, 230); ctx.lineTo(190, 230); ctx.stroke(); } // Base
+        if (stage > 1) { ctx.beginPath(); ctx.moveTo(50, 230); ctx.lineTo(50, 20); ctx.stroke(); }  // Poste vertical
+        if (stage > 2) { ctx.beginPath(); ctx.moveTo(50, 20); ctx.lineTo(150, 20); ctx.stroke(); }  // Poste horizontal
+        if (stage > 3) { ctx.beginPath(); ctx.moveTo(150, 20); ctx.lineTo(150, 50); ctx.stroke(); } // Cuerda
+        if (stage > 4) { ctx.beginPath(); ctx.arc(150, 70, 20, 0, Math.PI * 2, true); ctx.stroke(); } // Cabeza
+        if (stage > 5) { ctx.beginPath(); ctx.moveTo(150, 90); ctx.lineTo(150, 150); ctx.stroke(); }  // Cuerpo
+        if (stage > 6) { ctx.beginPath(); ctx.moveTo(150, 150); ctx.lineTo(130, 200); ctx.stroke(); } // Pierna izquierda
+        if (stage > 7) { ctx.beginPath(); ctx.moveTo(150, 150); ctx.lineTo(170, 200); ctx.stroke(); } // Pierna derecha
+        if (stage > 8) {
+            // Brazo izquierdo
+            ctx.beginPath();
+            ctx.moveTo(150, 110);
+            ctx.lineTo(130, 140);
+            ctx.stroke();
+        }
+
+        if (stage > 9) {
+            // Brazo derecho
+            ctx.beginPath();
+            ctx.moveTo(150, 110);
+            ctx.lineTo(170, 140);
+            ctx.stroke();
+        }
+
+        if (stage > 10) {
+            // Cara de muerto
+            ctx.beginPath();
+            ctx.moveTo(140, 60); ctx.lineTo(145, 65); ctx.moveTo(145, 60); ctx.lineTo(140, 65);  // Ojo izquierdo
+            ctx.moveTo(155, 60); ctx.lineTo(160, 65); ctx.moveTo(160, 60); ctx.lineTo(155, 65);  // Ojo derecho
+            ctx.moveTo(145, 80); ctx.arc(150, 80, 5, 0, Math.PI);  // Boca triste
+            ctx.stroke();
+        }
+    }
+
+    // Mostrar menú al iniciar
+    mostrarMenu();
+  </script>
+</body>
+  </html>
